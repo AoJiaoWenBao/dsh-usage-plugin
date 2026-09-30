@@ -11,12 +11,13 @@
     "./package.json": "./package.json"
   },
   "files": [
+    "docs",
     "lib",
     "cordis.patch.yml",
     "README.md"
   ],
   "scripts": {
-    "test": "node test/host.test.mjs && node test/client.test.mjs && node test/route.http.test.mjs"
+    "test": "node test/host.test.mjs && node test/client.test.mjs && node test/route.http.test.mjs && node test/race.test.mjs"
   },
   "dsh": {
     "bundle": {

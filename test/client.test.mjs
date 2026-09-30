@@ -313,6 +313,50 @@ const byType = textOf(panel.component({})).join(' | ')
 assert.ok(byType.includes('缓存命中') && byType.includes('思维链'), 'the type slice keeps the token legend')
 assert.ok(!byType.includes('deepseek-flash'), 'the type slice hides model names')
 
+// Two providers can serve the same model id, so the route — not the model name —
+// has to identify a series. Keying on the name alone collapses the two lines
+// onto one React node.
+/**
+ * One walk of a rendered tree collecting the chart's keys per kind. A single
+ * walk matters: every pass re-invokes function components, and each invocation
+ * consumes another positional hook override.
+ */
+function chartKeys(node, out = { 'line-': [], 'dot-': [], 'hover-': [] }) {
+  if (node === null || typeof node !== 'object') return out
+  if (Array.isArray(node)) {
+    for (const child of node) chartKeys(child, out)
+    return out
+  }
+  const key = node.props?.key
+  if (typeof key === 'string') {
+    for (const prefix of Object.keys(out)) if (key.startsWith(prefix)) out[prefix].push(key)
+  }
+  if (typeof node.type === 'function') return chartKeys(node.type(node.props), out)
+  for (const child of node.children ?? []) chartKeys(child, out)
+  return out
+}
+
+const twinPayload = {
+  ...fixture,
+  series: [
+    { provider: 'sensenova', model: 'deepseek-v4-flash', total: 300, values: [300, 0] },
+    { provider: 'deepseek-official', model: 'deepseek-v4-flash', total: 200, values: [0, 200] },
+  ],
+}
+// Hook order: window, heat-map mode, trend mode, useUsage, then the chart's hover.
+useStateOverrides = [7, undefined, 'model', { status: 'ready', data: twinPayload }, 0]
+const twinKeys = chartKeys(panel.component({}))
+assert.equal(twinKeys['line-'].length, 2, 'both same-named routes draw their own line')
+assert.equal(new Set(twinKeys['line-']).size, 2, 'same-named routes on different providers get distinct line keys')
+assert.ok(twinKeys['dot-'].length > 0, 'the short window still draws per-day dots')
+assert.equal(new Set(twinKeys['dot-']).size, twinKeys['dot-'].length, 'the per-day dots stay distinct')
+assert.equal(new Set(twinKeys['hover-']).size, twinKeys['hover-'].length, 'the hover dots stay distinct')
+assert.equal(useStateOverrides.length, 0, 'every hook read its override')
+
+useStateOverrides = [7, undefined, 'model', { status: 'ready', data: twinPayload }]
+const twinText = textOf(panel.component({})).join(' | ')
+assert.ok(twinText.includes('sensenova') && twinText.includes('deepseek-official'), 'the legend names each provider beside the shared model name')
+
 // An older Host payload (no stats / activity / series) must degrade, not crash.
 const legacy = { ...fixture }
 delete legacy.stats

@@ -2,6 +2,8 @@
 
 Researched: 2026-09-30 ~09:40–09:50 +08:00 · DSH_HOME = `C:\Users\52609\.dsh`
 
+> 归档说明：下文引用的 `_research/live-asar/` 是从 `app.asar` 只读解压出来的 live 源码工作副本，**未提交进仓库**（只存在于当时的临时目录）。凡引用它的结论，请以 `D:\rj\dsh\resources\app.asar` 内的同名文件为准 —— 用 `_research/asar-read.mjs` 可以直接按路径读取，不必解压。
+
 ---
 
 ## 0. ⚠️ FIRST: three different runtimes exist — only one is LIVE

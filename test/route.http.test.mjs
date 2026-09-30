@@ -127,6 +127,18 @@ assert.equal(foreignOrigin.status, 403, 'a foreign Origin is refused')
 const lan = await request({ host: `192.168.1.5:${port}` })
 assert.equal(lan.status, 403, 'a non-loopback Host is refused')
 
+// Host names that merely begin with "127." are registrable names, not loopback
+// addresses, so they must be refused even when Origin matches Host.
+for (const host of ['127.evil.test', '127.0.0.1.nip.io', '127.0.0.1.evil.test']) {
+  const spoofed = await request({ host: `${host}:${port}`, origin: `http://${host}:${port}` })
+  assert.equal(spoofed.status, 403, `${host} is not a loopback authority`)
+}
+// ...while every real spelling of loopback still passes.
+for (const host of ['127.0.0.1', '127.1', '127.255.255.254', '[::1]']) {
+  const loopback = await request({ host: `${host}:${port}` })
+  assert.equal(loopback.status, 200, `${host} is a loopback authority`)
+}
+
 // Window clamping over the wire.
 const clamped = await request({ host: `127.0.0.1:${port}` }, '/usage-stats/data?days=0')
 assert.equal(clamped.json.range.days, 30, 'days=0 falls back to the default window')

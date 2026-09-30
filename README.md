@@ -59,7 +59,7 @@
 ## 数据接口
 
 ```
-GET /usage-stats/data?days=30      # days 默认 30，范围 1..400；面板用 7 / 30
+GET /usage-stats/data?days=30      # days 默认 30，上限 400；0 / 负数 / 非数字一律回落 30。面板用 7 / 30
 ```
 
 返回结构（节选）：
@@ -98,7 +98,7 @@ GET /usage-stats/data?days=30      # days 默认 30，范围 1..400；面板用 
 
 `ready: false` 表示启动时的历史扫描还没跑完，返回的是已折叠的部分数据，面板会显示「历史日志仍在统计中」。
 
-该路由直接注册在 `ctx.webServer` 上（不经过 `/api`），因此自带一道与平台同源的信任栅栏：只接受**回环 Host**（`127.0.0.0/8`、`localhost`、`[::1]`），拒绝 `sec-fetch-site: cross-site`，并且当请求带 `Origin` 时要求它与 Host 同源。这是信任栅栏而不是身份认证。
+该路由直接注册在 `ctx.webServer` 上（不经过 `/api`），因此自带一道与平台同源的信任栅栏：只接受**回环 Host**（`127.0.0.0/8` 字面量、`localhost`、`[::1]`），拒绝 `sec-fetch-site: cross-site`，并且当请求带 `Origin` 时要求它与 Host 同源。`127.` 开头的**域名**（如 `127.evil.test`、`127.0.0.1.nip.io`）不算回环，会被拒。这是信任栅栏而不是身份认证 —— 它挡浏览器跨站读取，不挡本机进程。
 
 ## 安装与卸载
 
@@ -130,10 +130,10 @@ _research/          构建本插件时的调研证据（DSH 契约、会话日�
 - 包同时声明 `dsh.bundle`（Host 行）与 `dsh.client`（`platform: "web"`），一个包名同时作为 loader 行名、客户端图行 id、`__ModuleLoader__.load` 的 id（三者必须一致）。
 - 浏览器半的输出格式是 shell 的模块表契约：`window.__ModuleLoader__.load({ id, factory })`，`factory` 内是 CJS；`require("react")` 由 shell 的冻结模块表应答。bundler 只需保持这个 banner/footer 形状。
 - 客户端两个座位都用 `ctx.slots.inject(...)` 注册：`sidebar.panellist`（列表项，`id: "usage-stats"`）决定侧边栏按钮，`main`（键控，`key: "usage-stats"`）决定主面板内容 —— 这是 0.2.0-rc.2 里「侧边栏图标 → 中央面板」的官方配对方式。
-- Host 半有两条喂数路径，靠**每会话的 `seq` 水位线**去重：
+- Host 半有两条喂数路径，各自记一本 `seq` 账，谁也不吞掉别人的事件：
   - 历史：启动时用 `sessionQuery.listSessions()` + `readSession(id)` 全量折叠一遍（跨 v0/v3/v4 三代日志格式，解压与迁移由平台服务负责）；
   - 实时：`ctx.on("session/event", (session, event) => ...)` 增量折叠。
-  迟到的历史扫描不会重复计入实时已经算过的事件（反之亦然）。
+  - **去重规则**：实时 feed 是从会话中途接进来的，它送来的第一个 `seq` 远高于该会话的历史。所以两条路径各留一个「已折叠的最高 seq」防重投；历史扫描另外记住实时 feed 送过的**最低 seq**（`liveFloor`），只折叠**低于**它的部分（插件加载前的历史），高于等于的留给实时路径。这样「插件加载时正在活跃的会话」不会丢掉加载前的历史，两条路径以任何顺序跑、甚至只跑一条都成立。
 - 依赖都是可选装配（`ctx.inject`），没有 webServer 或 sessionQuery 的组合里插件仍然加载，只是不提供路由 / 没有历史数据。
 
 ## 测试
@@ -143,9 +143,10 @@ cd D:\workspace\dsh-plugin
 npm test
 ```
 
-- `test/host.test.mjs` —— 用手搭的 ctx 驱动 `apply()`，覆盖：历史折叠、实时增量、`seq` 去重、二次扫描幂等、窗口裁剪、按天按模型的 `series`、53 周 `activity`、`stats`（累积 / 峰值 / 会话跨度 / 连续天数）、坏数据不抛异常、访问规则。
-- `test/route.http.test.mjs` —— 把注册到的处理器挂到真实 `node:http` 服务器上，用**原始 Host 头**发请求，覆盖回环 / 非回环 / 跨站 / 异源 Origin / `days` 夹取 / 坏 Host 不 500。
-- `test/client.test.mjs` —— 用替身 `window.__ModuleLoader__` + 迷你 React 执行 `lib/client.js`，断言 bundle 契约、两个座位的注册参数、顶部统计条、热力图三种口径、按模型 / 按类型折线、`万`/`亿` 单位（大数不得出现原始 8 位数、悬停仍可取精确值）、空区间 / 错误分支，以及**旧版 Host 载荷的降级**（不崩、提示重启）。
+- `test/host.test.mjs` —— 用手搭的 ctx 驱动 `apply()`，覆盖：历史折叠、实时增量、`seq` 去重、二次扫描幂等（真的重跑一次依赖挂载并断言日志被重新读取，不是空操作）、窗口裁剪、按天按模型的 `series`、53 周 `activity`、`stats`（累积 / 峰值 / 会话跨度 / 连续天数）、坏数据不抛异常、访问规则。
+- `test/race.test.mjs` —— 回归测试：把历史扫描卡在闸门上，让实时事件**先**到，断言该会话的历史不会被吞掉（旧规则下会整段丢失），同时断言两条路径都看到的事件只计一次。
+- `test/route.http.test.mjs` —— 把注册到的处理器挂到真实 `node:http` 服务器上，用**原始 Host 头**发请求，覆盖回环 / 非回环 / 伪装成回环的域名 / 跨站 / 异源 Origin / `days` 夹取 / 坏 Host 不 500。
+- `test/client.test.mjs` —— 用替身 `window.__ModuleLoader__` + 迷你 React 执行 `lib/client.js`，断言 bundle 契约、两个座位的注册参数、顶部统计条、热力图三种口径、按模型 / 按类型折线、同名模型不撞 key、`万`/`亿` 单位（大数不得出现原始 8 位数、悬停仍可取精确值）、空区间 / 错误分支，以及**旧版 Host 载荷的降级**（不崩、提示重启）。
 
 ## 已知限制
 

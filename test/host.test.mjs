@@ -48,6 +48,12 @@ const listeners = new Map()
 const routes = new Map()
 const logs = []
 
+/** Inject callbacks the plugin registered, so a test can re-run them. */
+const hooks = []
+
+/** How many session logs the fold has read; proves a scan really happened. */
+let logReads = 0
+
 const webServer = {
   register(route) {
     routes.set(`${route.kind}:${route.path}`, route)
@@ -60,6 +66,7 @@ const sessionQuery = {
     return Object.keys(history).map((id) => ({ header: { id }, live: false, persisted: true }))
   },
   async readSession(id) {
+    logReads += 1
     return { session: { id }, events: history[id] ?? [] }
   },
 }
@@ -88,6 +95,10 @@ function makeCtx() {
         if (dep === 'sessionQuery') scope.sessionQuery = sessionQuery
         if (dep === 'webServer') scope.webServer = webServer
       }
+      // Cordis re-runs an inject callback when its dependencies remount, so the
+      // hooks are kept: a test can then drive a genuine re-scan instead of the
+      // no-op that used to stand in for one.
+      hooks.push({ deps, callback, scope })
       callback(scope)
       return () => {}
     },
@@ -182,10 +193,16 @@ assert.equal(afterLive.json.series[0].values[6], 710, 'the live call joins the l
 // Replaying an already-folded seq must not double count.
 emitLive(SESSION_A, message(4, at(0, 15), { inputTokens: 7, outputTokens: 3, cacheReadTokens: 700 }))
 const afterReplay = await get('?days=7')
-assert.equal(afterReplay.json.totals.total, afterLive.json.totals.total, 'the seq watermark deduplicates replays')
+assert.equal(afterReplay.json.totals.total, afterLive.json.totals.total, 'a redelivered live event is deduplicated')
 
-// A second history scan must also stay idempotent.
-await ctx.inject(['sessionQuery'], () => {})
+// A second history scan must also stay idempotent. Re-run the plugin's own
+// sessionQuery hook, which is what a dependency remount does; the previous
+// version of this test invoked an empty callback, so no scan ran at all and the
+// assertion below proved nothing.
+const readsBeforeRescan = logReads
+for (const hook of hooks.filter((entry) => entry.deps.includes('sessionQuery'))) hook.callback(hook.scope)
+await new Promise((resolve) => setTimeout(resolve, 20))
+assert.ok(logReads > readsBeforeRescan, 'the dependency remount actually re-read the session logs')
 const afterRescan = await get('?days=7')
 assert.equal(afterRescan.json.totals.total, afterLive.json.totals.total, 're-scanning history does not double count')
 
