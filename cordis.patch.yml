@@ -1,0 +1,6 @@
+# dsh-plugin-usage-stats bundle patch.
+# One row: the package's main entry is the Host half, and the same package
+# declares `dsh.client` so the browser half joins window.__DSH_BOOT__.
+- insert:
+    - id: usage-stats
+      name: dsh-plugin-usage-stats

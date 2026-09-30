@@ -1,0 +1,29 @@
+{
+  "name": "dsh-plugin-usage-stats",
+  "version": "0.1.0",
+  "description": "每日 token 用量统计插件：Host 端按类型聚合 token 用量，Web 端提供统计面板",
+  "type": "module",
+  "license": "MIT",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node test/host.test.mjs && node test/client.test.mjs && node test/route.http.test.mjs"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web"
+    }
+  }
+}
