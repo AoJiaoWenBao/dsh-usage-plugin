@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Generate `docs/panel.svg`: a static mock of the usage dashboard layout
  * (figures row, contribution heat map, range switch, trend chart). Run:
  * `node _research/make-panel-svg.mjs`.
@@ -6,7 +6,7 @@
 import { writeFileSync } from 'node:fs'
 
 const W = 800
-const H = 560
+const H = 596
 const out = []
 const push = (line) => out.push(line)
 
@@ -62,23 +62,31 @@ stats.forEach((stat, index) => {
   push(`<text x="${x}" y="134" fill="${MUTED}" font-size="11.5">${stat.label}</text>`)
 })
 
-// type strip
-push(`<text x="78" y="174" font-size="11.5" fill="${MUTED}"><tspan fill="${STRONG}" font-weight="600">合计 2.37亿</tspan>　输入 388.2万　输出 143.9万　缓存命中 2.32亿　缓存写入 0　思维链 0　调用 1,437 次</text>`)
+// window summary tiles: one small card per metric
+;[['合计', '2.37亿'], ['输入', '388.2万'], ['输出', '143.9万'], ['缓存命中', '2.32亿'], ['缓存写入', '0'], ['思维链', '0'], ['调用', '1,437']]
+  .forEach(([label, value], index, all) => {
+    const gap = 8
+    const tileWidth = (700 - gap * (all.length - 1)) / all.length
+    const x = 76 + index * (tileWidth + gap)
+    push(`<rect x="${x}" y="162" width="${tileWidth}" height="46" rx="8" ${CARD}/>`)
+    push(`<text x="${x + 10}" y="178" fill="${MUTED}" font-size="10.5">${label}</text>`)
+    push(`<text x="${x + 10}" y="196" fill="${STRONG}" font-size="13" font-weight="600">${value}</text>`)
+  })
 
 // heat map card
-push(`<rect x="76" y="190" width="700" height="176" rx="12" ${CARD}/>`)
-push(`<text x="94" y="216" fill="${STRONG}" font-size="13.5" font-weight="600">Token 活动</text>`)
+push(`<rect x="76" y="226" width="700" height="176" rx="12" ${CARD}/>`)
+push(`<text x="94" y="252" fill="${STRONG}" font-size="13.5" font-weight="600">Token 活动</text>`)
 ;['每日', '每周', '累计'].forEach((label, index) => {
   const x = 604 + index * 56
-  push(`<rect x="${x}" y="202" width="50" height="20" rx="10" fill="${index === 0 ? '#4c8dff' : 'none'}" stroke="${index === 0 ? 'none' : '#4a4d52'}"/>`)
-  push(`<text x="${x + 25}" y="216" fill="${index === 0 ? '#fff' : MUTED}" font-size="11.5" text-anchor="middle">${label}</text>`)
+  push(`<rect x="${x}" y="238" width="50" height="20" rx="10" fill="${index === 0 ? '#4c8dff' : 'none'}" stroke="${index === 0 ? 'none' : '#4a4d52'}"/>`)
+  push(`<text x="${x + 25}" y="252" fill="${index === 0 ? '#fff' : MUTED}" font-size="11.5" text-anchor="middle">${label}</text>`)
 })
 const cell = 9
 const gap = 3
 const columns = 26
 const heat = ['rgba(127,127,127,0.14)', 'rgba(76,141,255,0.25)', 'rgba(76,141,255,0.45)', 'rgba(76,141,255,0.72)', '#4c8dff']
 const gridX = 94
-const gridY = 236
+const gridY = 272
 ;['11月', '12月', '1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月'].forEach((label, index) => {
   push(`<text x="${gridX + index * 2.4 * (cell + gap)}" y="${gridY - 6}" fill="${MUTED}" font-size="10.5">${label}</text>`)
 })
@@ -91,39 +99,39 @@ for (let column = 0; column < columns; column += 1) {
   }
 }
 heat.forEach((color, index) => {
-  push(`<rect x="${576 + index * 14}" y="338" width="10" height="10" rx="3" fill="${color}"/>`)
+  push(`<rect x="${576 + index * 14}" y="374" width="10" height="10" rx="3" fill="${color}"/>`)
 })
-push(`<text x="560" y="347" fill="${MUTED}" font-size="10.5" text-anchor="end">少</text>`)
-push(`<text x="658" y="347" fill="${MUTED}" font-size="10.5">多</text>`)
+push(`<text x="560" y="383" fill="${MUTED}" font-size="10.5" text-anchor="end">少</text>`)
+push(`<text x="658" y="383" fill="${MUTED}" font-size="10.5">多</text>`)
 
 // range row
-push(`<text x="80" y="392" fill="${MUTED}" font-size="12.5" font-weight="600">时间范围</text>`)
+push(`<text x="80" y="428" fill="${MUTED}" font-size="12.5" font-weight="600">时间范围</text>`)
 ;['近 7 天', '近 30 天'].forEach((label, index) => {
   const x = 634 + index * 60
-  push(`<rect x="${x}" y="378" width="54" height="20" rx="10" fill="${index === 1 ? '#4c8dff' : 'none'}" stroke="${index === 1 ? 'none' : '#4a4d52'}"/>`)
-  push(`<text x="${x + 27}" y="392" fill="${index === 1 ? '#fff' : MUTED}" font-size="11.5" text-anchor="middle">${label}</text>`)
+  push(`<rect x="${x}" y="414" width="54" height="20" rx="10" fill="${index === 1 ? '#4c8dff' : 'none'}" stroke="${index === 1 ? 'none' : '#4a4d52'}"/>`)
+  push(`<text x="${x + 27}" y="428" fill="${index === 1 ? '#fff' : MUTED}" font-size="11.5" text-anchor="middle">${label}</text>`)
 })
 
 // trend card
-push(`<rect x="76" y="410" width="700" height="140" rx="12" ${CARD}/>`)
-push(`<text x="94" y="434" fill="${STRONG}" font-size="13.5" font-weight="600">每日 Token 趋势图</text>`)
+push(`<rect x="76" y="446" width="700" height="140" rx="12" ${CARD}/>`)
+push(`<text x="94" y="470" fill="${STRONG}" font-size="13.5" font-weight="600">每日 Token 趋势图</text>`)
 ;['按模型', '按类型'].forEach((label, index) => {
   const x = 604 + index * 56
   push(`<rect x="${x}" y="420" width="50" height="20" rx="10" fill="${index === 0 ? '#4c8dff' : 'none'}" stroke="${index === 0 ? 'none' : '#4a4d52'}"/>`)
-  push(`<text x="${x + 25}" y="434" fill="${index === 0 ? '#fff' : MUTED}" font-size="11.5" text-anchor="middle">${label}</text>`)
+  push(`<text x="${x + 25}" y="470" fill="${index === 0 ? '#fff' : MUTED}" font-size="11.5" text-anchor="middle">${label}</text>`)
 })
 MODELS.forEach((model, index) => {
   const x = 94 + index * 158
-  push(`<rect x="${x}" y="452" width="9" height="9" rx="3" fill="${model.color}"/>`)
-  push(`<text x="${x + 14}" y="461" fill="${MUTED}" font-size="11">${model.label}</text>`)
+  push(`<rect x="${x}" y="488" width="9" height="9" rx="3" fill="${model.color}"/>`)
+  push(`<text x="${x + 14}" y="497" fill="${MUTED}" font-size="11">${model.label}</text>`)
 })
 for (let line = 0; line < 4; line += 1) {
-  const y = 480 + line * 16
+  const y = 516 + line * 16
   push(`<line x1="94" y1="${y}" x2="758" y2="${y}" stroke="#2b2f35" stroke-dasharray="3 4"/>`)
 }
 const plotX = 136
 const plotW = 622
-const plotTop = 484
+const plotTop = 520
 const plotHeight = 44
 // Four model routes, shaped like the live 30-day window.
 const series = [
@@ -170,7 +178,7 @@ push(`<text x="${boxX + 10}" y="${boxY + 50}" fill="${MUTED}" font-size="10">合
 })
 ;['9月1日', '9月6日', '9月11日', '9月16日', '9月21日', '9月26日', '9月30日'].forEach((label, index) => {
   const x = plotX + (index / 6) * plotW
-  push(`<text x="${x}" y="544" fill="${MUTED}" font-size="10.5" text-anchor="${index === 0 ? 'start' : index === 6 ? 'end' : 'middle'}">${label}</text>`)
+  push(`<text x="${x}" y="580" fill="${MUTED}" font-size="10.5" text-anchor="${index === 0 ? 'start' : index === 6 ? 'end' : 'middle'}">${label}</text>`)
 })
 push('</svg>')
 

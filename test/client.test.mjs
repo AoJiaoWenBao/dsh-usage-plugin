@@ -205,6 +205,21 @@ assert.ok(text.includes('3 天') && text.includes('5 天'), 'both streaks render
 assert.ok(text.includes('输入') && text.includes('输出') && text.includes('缓存命中') && text.includes('缓存写入') && text.includes('思维链'), 'every token type is named')
 assert.ok(text.includes('4,140') && text.includes('3,700'), 'the type strip shows exact window totals')
 
+// The window summary is one small tile per metric (label above, value below).
+function countTiles(node, total = 0) {
+  if (node === null || typeof node !== 'object') return total
+  if (Array.isArray(node)) {
+    for (const child of node) total = countTiles(child, total)
+    return total
+  }
+  if (typeof node.props?.['data-metric'] === 'string') total += 1
+  if (typeof node.type === 'function') return countTiles(node.type(node.props), total)
+  for (const child of node.children ?? []) total = countTiles(child, total)
+  return total
+}
+
+assert.equal(countTiles(rendered), 7, 'the summary renders seven tiles: total + five token types + calls')
+
 // Big counts are shown in 万 / 亿 everywhere, never as a wall of digits.
 const bigPayload = {
   ...fixture,
@@ -306,6 +321,21 @@ assert.ok(
   layoutStyles.some((style) => style.width === 'fit-content' && style.margin === '0 auto'),
   'the heat-map grid is centred inside its card',
 )
+
+// Theme: a selected chip pairs the brand fill with the platform's inverted
+// label token. A literal white label is invisible on the dark theme, where
+// `--dsw-alias-brand-primary` resolves to a near-white #f9fafb.
+const selectedChips = layoutStyles.filter(
+  (style) => typeof style.background === 'string' && style.background.includes('--dsw-alias-brand-primary'),
+)
+assert.ok(selectedChips.length >= 3, 'the selected chips use the brand fill')
+for (const style of selectedChips) {
+  assert.ok(
+    typeof style.color === 'string' && style.color.includes('--dsw-alias-label-primary-inverted'),
+    `a selected chip must use the inverted label token, got ${String(style.color)}`,
+  )
+  assert.ok(!/^#fff$/i.test(String(style.color)) && !/^white$/i.test(String(style.color)), 'never a literal white label')
+}
 
 // Slicing by token type swaps the legend to the token vocabulary.
 useStateOverrides = [undefined, undefined, 'type', { status: 'ready', data: fixture }]

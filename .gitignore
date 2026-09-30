@@ -1,3 +1,13 @@
 node_modules/
 .npm-cache/
 *.tgz
+
+# 调研中间产物：从 DSH 应用包里解出的文档/补丁、探针工程——不入库
+_research/pkg/
+_research/mcp-probe/
+_research/*.txt
+_research/asar-list.mjs
+_research/find-computeruse.mjs
+_research/list-asar-packages.mjs
+_research/mcp-client-lib.js
+_research/mcp-probe.mjs
